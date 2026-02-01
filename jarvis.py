@@ -1,100 +1,55 @@
-import os
-import json
-import time
 
-# --- BOLNE WALA SYSTEM ---
+        import os
+import speech_recognition as sr
+import datetime
+
+# --- BOLNE WALA FUNCTION (Termux ke liye) ---
 def speak(text):
-    print(f"Vivek: {text}")
-    # Termux ko bulwane ka command
-    os.system(f"termux-tts-speak '{text}'")
+    print(f"Jarvis: {text}")
+    # Termux ka apna bolne wala system use karenge
+    os.system(f'termux-tts-speak "{text}"')
 
-# --- SUNNE WALA SYSTEM ---
-def listen():
-    print("\nListening... (Bolne ke baad back karein)")
-    # Mic khulega
-    text = os.popen("termux-speech-to-text").read().strip().lower()
-    # Screen par dikhayega ki kya suna (Debugging ke liye)
-    if text:
-        print(f"--> Suna: {text}")
-    return text
-
-# --- MAIN LOGIC ---
-os.system("clear")
-print("--- VIVEK SYSTEM READY ---")
-speak("Main taiyaar hoon. Boliye Vivek On.")
-
-is_awake = False
-
-while True:
-    try:
-        text = listen()
+# --- SUNNE WALA FUNCTION ---
+def take_command():
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("\nChecking background noise... (1 second shant rahein)")
+        # Ye line aas-paas ka shor hatati hai
+        r.adjust_for_ambient_noise(source, duration=1)
         
-        if not text:
-            continue
-
-        # --- 1. ON/OFF CONTROL ---
-        if "vivek on" in text or "wake up" in text or "start" in text:
-            is_awake = True
-            speak("Online hoon sir. Boliye.")
-            continue
+        print("Listening... (Ab Boliye)")
+        r.pause_threshold = 1  # Rukne ka time
         
-        elif "vivek off" in text or "sleep" in text:
-            is_awake = False
-            speak("Main offline ja raha hoon.")
+        try:
+            # 5 second tak wait karega, agar kuch nahi bola to error nahi dega
+            audio = r.listen(source, timeout=5, phrase_time_limit=5)
+            print("Soch raha hoon...")
+            query = r.recognize_google(audio, language='en-in')
+            print(f"Aapne kaha: {query}")
+            
+        except Exception as e:
+            print("Awaz samajh nahi aayi, phir se boliye...")
+            return "None"
+            
+    return query.lower()
+
+# --- MAIN SYSTEM ---
+if __name__ == "__main__":
+    speak("Hello Vivek Sir, main online hoon. Boliye kya karna hai?")
+    
+    while True:
+        query = take_command()
+
+        if 'hello' in query:
+            speak("Hello Sir! Kaise hain aap?")
+        
+        elif 'time' in query:
+            strTime = datetime.datetime.now().strftime("%H:%M")
+            speak(f"Sir, abhi time hua hai {strTime}")
+
+        elif 'stop' in query or 'bye' in query:
+            speak("Goodbye Sir, system closing.")
+            break
+            
+        elif 'none' in query:
             continue
-
-        # Agar System So raha hai toh ignore karega
-        if is_awake == False:
-            continue
-
-        # --- 2. COMMANDS (Jab wo jaaga ho) ---
-
-        # OPEN APP
-        if "open" in text:
-            app_name = text.replace("open", "").strip().replace(" ", "")
-            speak(f"Opening {app_name}")
-            os.system(f"termux-open-url https://{app_name}.com")
-
-        # CLOSE APP
-        elif "close app" in text:
-            speak("Closing app")
-            os.system("cmd input keyevent 3")
-
-        # CALL
-        elif "call" in text:
-            name = text.replace("call", "").strip()
-            speak(f"Calling {name}")
-            try:
-                contact_list = json.loads(os.popen("termux-contact-list").read())
-                for contact in contact_list:
-                    if name in contact.get("name", "").lower():
-                        os.system(f"termux-telephony-call {contact.get('number')}")
-                        break
-            except:
-                speak("Contact nahi mila.")
-
-        # CUT CALL
-        elif "cut" in text:
-            speak("Call kaat raha hoon")
-            os.system("cmd input keyevent 6")
-
-        # PLAY MUSIC
-        elif "play" in text:
-            song = text.replace("play", "").strip()
-            query = song.replace(" ", "+")
-            speak(f"Playing {song}")
-            os.system(f"termux-open-url https://music.youtube.com/search?q={query}")
-
-        # CLOSE MUSIC
-        elif "close music" in text:
-            speak("Music band kar raha hoon")
-            os.system("cmd input keyevent 86") # Stop
-            time.sleep(1)
-            os.system("cmd input keyevent 3")  # Home
-
-        # Agar kuch ulta seedha suna
-        else:
-            print("Command samajh nahi aaya, dubara boliye.")
-
-    except KeyboardInterrupt:
-        break
